@@ -10,5 +10,5 @@ main =
     args <- getArgs
     let path = head args
     content <- BL.readFile path
-    let result = Scanner.scanner content
+    let result = Scanner.scan content
     print result

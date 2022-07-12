@@ -1,12 +1,13 @@
 module Scanner
-  ( scanner
+  ( scan
   ) where
 
-import Data.Char (chr)
+import Data.Char (chr, ord)
 import Data.Word (Word8)
 import qualified Data.List as List
 import qualified Data.ByteString.Lazy as BL
 import qualified Data.ByteString.Lazy.UTF8 as BLU
+import qualified Data.ByteString.Internal as BSI (c2w, w2c)
 
 
 data Token
@@ -26,89 +27,117 @@ data Token
   | JEmpty
   deriving (Show)
 
+data Match t
+  = MatchOk BL.ByteString [t]
+  | MatchErr BL.ByteString String
+  deriving (Show)
 
-wordToStr :: Word8 -> Char
-wordToStr = chr . fromEnum 
+instance Semigroup (Match t) where
+  left <> right = 
+    case left of
+      MatchErr leftStream leftMsg ->
+        case right of
+          MatchErr rightStream rightMsg ->
+            MatchErr rightStream (leftMsg ++ "\n" ++ rightMsg)
+          
+          MatchOk rightStream rightList ->
+            MatchErr rightStream leftMsg
 
-matchToken :: Word8 -> [Token] -> [Token]
-matchToken word tokens =
-  case wordToStr word of
-    '{' ->
-      JOpeningBrace:tokens
-    
-    '}' ->
-      JClosingBrace:tokens
-    
-    '[' ->
-      JOpeningSquare:tokens
-    
-    ']' ->
-      JClosingSquare:tokens
-    
-    ',' ->
-      JComma:tokens
-    
-    ':' ->
-      JColon:tokens
-    
-    '"' ->
-      JDoubleQuote:tokens
-    
-    ' ' ->
-      JWhiteSpace:tokens
-    
-    '\t' ->
-      JWhiteSpace:tokens
+      MatchOk leftStream leftList ->
+        case right of
+          MatchErr rightStream rightMsg ->
+            MatchErr rightStream rightMsg
 
-    '\n' ->
-      JWhiteSpace:tokens
-    
-    _ ->
-      matchElse word tokens
+          MatchOk rightStream rightList ->
+            MatchOk rightStream (leftList ++ rightList)
+
+type Scanner t = (BL.ByteString -> Match t)
 
 
-matchElse :: Word8 -> [Token] -> [Token]
-matchElse word tokens =
-  case tokens of
+scan :: BL.ByteString -> ([Token], String)
+scan stream =
+  let
+    matchOpenBrace = matchChar '{'
+    matchDoubleQuote = matchChar '\"'
+    scanner = matchFoldr matchPipe matchOpenBrace [matchDoubleQuote, matchAlpha, matchAlpha, matchAlpha]
+  in
+    case scanner stream of 
+      MatchOk rest string ->
+        ([JString (BLU.fromString string)], "")
+
+      MatchErr rest msg ->
+        ([], msg)
+
+matchFoldr :: (Scanner t -> Scanner t -> Scanner t) -> Scanner t -> [Scanner t] -> Scanner t
+matchFoldr func init list =
+  case list of
     [] ->
-      matchToken word []
-    
-    (current:rest) ->
-      case current of
-        JDoubleQuote ->
-          case rest of
-            (JString _:rest') ->
-              matchToken word tokens
-            
-            _ ->
-              (matchStringToken word BL.empty):tokens
-        
-        JString str ->
-          (matchStringToken word str):rest
+      init
 
-        JNumber str ->
-          (matchNumberToken word str):rest
+    (x:xs) ->
+      matchFoldr func (func init x) xs 
 
-        _ ->
-          let
-            digits = "0123456789"
-            isDigit = elem (wordToStr word) digits
-          in
-            case isDigit of
-              True ->
-                (matchNumberToken word BL.empty):tokens
+matchPipe :: Scanner t -> Scanner t -> Scanner t
+matchPipe leftParser rightParser stream =
+  let
+    leftMatch = leftParser stream
+    leftStream =
+      case leftMatch of
+        MatchOk rest ts ->
+          rest
 
-              False ->
-                JEmpty:tokens
+        MatchErr rest msg ->
+          rest
+    rightMatch = rightParser leftStream
+  in
+    leftMatch <> rightMatch
 
-matchStringToken :: Word8 -> BL.ByteString -> Token
-matchStringToken word str =
-  JString (BL.cons word str)
+matchOr :: Scanner t -> Scanner t -> Scanner t
+matchOr leftParser rightParser stream =
+  case leftParser stream of
+    MatchOk rest ts ->
+      MatchOk rest ts
 
-matchNumberToken :: Word8 -> BL.ByteString -> Token
-matchNumberToken word str =
-  JNumber (BL.cons word str)
+    MatchErr rest msg ->
+      case rightParser stream of
+        MatchOk rest' ts' ->
+          MatchOk rest' ts'
 
-scanner :: BL.ByteString -> [Token]
-scanner content =
-  (BL.foldr matchToken [] content)
+        MatchErr rest' msg' ->
+          (MatchErr rest msg) <> (MatchErr rest' msg')
+
+matchMap :: (a -> b) -> Scanner a -> Scanner b
+matchMap f scanner =
+  (\stream ->
+    case scanner stream of
+      MatchOk rest ts ->
+        MatchOk rest (map f ts)
+
+      MatchErr rest msg ->
+        MatchErr rest msg
+  )
+
+matchChar :: Char -> BL.ByteString -> Match Char
+matchChar char stream =
+  case BLU.uncons stream of
+    Nothing ->
+      MatchErr BL.empty "End of stream"
+
+    Just (c, rest) ->
+      MatchOk rest [c]
+
+matchAlphaLower :: BL.ByteString -> Match Char
+matchAlphaLower =
+  matchFoldr matchOr (matchChar 'a') (map matchChar "bcdefghijlkmnopqrstvwxyz")
+
+matchAlphaUpper :: BL.ByteString -> Match Char
+matchAlphaUpper =
+  matchFoldr matchOr (matchChar 'A') (map matchChar "BCDEFGHIJKLMNOPQRSTUVWXYZ")
+
+matchDigits :: BL.ByteString -> Match Char
+matchDigits =
+  matchFoldr matchOr (matchChar '0') (map matchChar "123456789")
+
+matchAlpha :: BL.ByteString -> Match Char
+matchAlpha =
+  matchAlphaLower `matchOr` matchAlphaUpper
