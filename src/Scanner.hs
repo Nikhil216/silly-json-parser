@@ -58,8 +58,19 @@ scan :: BL.ByteString -> ([Token], String)
 scan stream =
   let
     matchOpenBrace = matchChar '{'
-    matchDoubleQuote = matchChar '\"'
-    scanner = matchFoldr matchPipe matchOpenBrace [matchDoubleQuote, matchAlpha, matchAlpha, matchAlpha]
+    matchCloseBrace = matchChar '}'
+    matchColon = matchChar ':'
+    matchComma = matchChar ','
+    matchStringNumberPair = matchString `matchPipe` matchColon `matchPipe` matchInteger
+    scanner =
+      matchFoldr
+        matchPipe
+        matchOpenBrace
+        [ matchStringNumberPair
+        , matchComma
+        , matchStringNumberPair
+        , matchCloseBrace
+        ]
   in
     case scanner stream of 
       MatchOk rest string ->
@@ -106,38 +117,109 @@ matchOr leftParser rightParser stream =
         MatchErr rest' msg' ->
           (MatchErr rest msg) <> (MatchErr rest' msg')
 
+matchNot :: (Char -> t) -> Scanner t -> Scanner t
+matchNot f scanner stream =
+  case scanner stream of
+    MatchOk rest a ->
+      MatchErr stream ("Not expected but found it")
+
+    MatchErr rest msg ->
+      if msg == "End of stream"
+        then
+          MatchErr rest msg
+        else
+          matchAny f stream
+
+-- Peeking requires to reconstruct the  
+matchZeroOrMore :: (Char -> t) -> Scanner t -> Scanner t
+matchZeroOrMore f scanner stream =
+  case matchZeroOrMoreThenPeek f scanner stream of
+    MatchErr rest msg ->
+      MatchErr rest msg
+
+    MatchOk rest [] ->
+      MatchOk rest []
+
+    MatchOk rest ts ->
+      let
+        matchLength = length ts
+        matchLenghBeforePeek = matchLength - 1
+        restBeforePeek = BL.drop (fromIntegral matchLenghBeforePeek) stream
+      in
+        MatchOk restBeforePeek (init ts)
+
+matchZeroOrMoreThenPeek :: (Char -> t) -> Scanner t -> Scanner t
+matchZeroOrMoreThenPeek f scanner =
+  (matchNot f scanner) `matchOr` (scanner `matchPipe` (matchZeroOrMoreThenPeek f scanner))
+
+matchZeroOrMoreChar :: Scanner Char -> Scanner Char
+matchZeroOrMoreChar = matchZeroOrMore id
+
+matchOneOrMore :: (Char -> t) -> Scanner t -> Scanner t
+matchOneOrMore f scanner =
+  scanner `matchPipe` (matchZeroOrMore f scanner)
+
+matchOneOrMoreChar :: Scanner Char -> Scanner Char
+matchOneOrMoreChar = matchOneOrMore id
+
 matchMap :: (a -> b) -> Scanner a -> Scanner b
-matchMap f scanner =
-  (\stream ->
-    case scanner stream of
-      MatchOk rest ts ->
-        MatchOk rest (map f ts)
+matchMap f scanner stream =
+  case scanner stream of
+    MatchOk rest ts ->
+      MatchOk rest (map f ts)
 
-      MatchErr rest msg ->
-        MatchErr rest msg
-  )
+    MatchErr rest msg ->
+      MatchErr rest msg
 
-matchChar :: Char -> BL.ByteString -> Match Char
+matchAny :: (Char -> t) -> Scanner t
+matchAny f stream =
+  case BLU.uncons stream of
+    Nothing ->
+      MatchErr BL.empty "End of stream"
+
+    Just (c, rest) ->
+      MatchOk rest [f c]
+
+matchAnyChar :: Scanner Char
+matchAnyChar =
+  matchAny id
+
+matchChar :: Char -> Scanner Char
 matchChar char stream =
   case BLU.uncons stream of
     Nothing ->
       MatchErr BL.empty "End of stream"
 
     Just (c, rest) ->
-      MatchOk rest [c]
+      if c == char
+        then
+          MatchOk rest [c]
+        else
+          MatchErr stream ("Found " ++ [c] ++ " instead of " ++ [char])
 
-matchAlphaLower :: BL.ByteString -> Match Char
+matchNotChar :: Char -> Scanner Char
+matchNotChar = matchNot id . matchChar
+
+matchAlphaLower :: Scanner Char
 matchAlphaLower =
   matchFoldr matchOr (matchChar 'a') (map matchChar "bcdefghijlkmnopqrstvwxyz")
 
-matchAlphaUpper :: BL.ByteString -> Match Char
+matchAlphaUpper :: Scanner Char
 matchAlphaUpper =
   matchFoldr matchOr (matchChar 'A') (map matchChar "BCDEFGHIJKLMNOPQRSTUVWXYZ")
 
-matchDigits :: BL.ByteString -> Match Char
-matchDigits =
+matchDigit :: Scanner Char
+matchDigit =
   matchFoldr matchOr (matchChar '0') (map matchChar "123456789")
 
-matchAlpha :: BL.ByteString -> Match Char
+matchAlpha :: Scanner Char
 matchAlpha =
   matchAlphaLower `matchOr` matchAlphaUpper
+
+matchInteger :: Scanner Char
+matchInteger =
+  matchOneOrMoreChar matchDigit
+
+matchString :: Scanner Char
+matchString =
+  (matchChar '"') `matchPipe` (matchZeroOrMoreChar (matchNotChar '"')) `matchPipe` (matchChar '"')
