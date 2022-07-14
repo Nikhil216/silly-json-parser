@@ -130,27 +130,9 @@ matchNot f scanner stream =
         else
           matchAny f stream
 
--- Peeking requires to reconstruct the  
 matchZeroOrMore :: (Char -> t) -> Scanner t -> Scanner t
-matchZeroOrMore f scanner stream =
-  case matchZeroOrMoreThenPeek f scanner stream of
-    MatchErr rest msg ->
-      MatchErr rest msg
-
-    MatchOk rest [] ->
-      MatchOk rest []
-
-    MatchOk rest ts ->
-      let
-        matchLength = length ts
-        matchLenghBeforePeek = matchLength - 1
-        restBeforePeek = BL.drop (fromIntegral matchLenghBeforePeek) stream
-      in
-        MatchOk restBeforePeek (init ts)
-
-matchZeroOrMoreThenPeek :: (Char -> t) -> Scanner t -> Scanner t
-matchZeroOrMoreThenPeek f scanner =
-  (matchNot f scanner) `matchOr` (scanner `matchPipe` (matchZeroOrMoreThenPeek f scanner))
+matchZeroOrMore f scanner =
+  (peek (matchNot f scanner)) `matchOr` (scanner `matchPipe` (matchZeroOrMore f scanner))
 
 matchZeroOrMoreChar :: Scanner Char -> Scanner Char
 matchZeroOrMoreChar = matchZeroOrMore id
@@ -196,6 +178,15 @@ matchChar char stream =
           MatchOk rest [c]
         else
           MatchErr stream ("Found " ++ [c] ++ " instead of " ++ [char])
+
+peek :: Scanner t -> Scanner t
+peek scanner stream =
+  case scanner stream of
+    MatchErr rest msg ->
+      MatchErr rest msg
+
+    MatchOk rest ts ->
+      MatchOk stream []
 
 matchNotChar :: Char -> Scanner Char
 matchNotChar = matchNot id . matchChar
