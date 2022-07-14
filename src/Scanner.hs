@@ -61,18 +61,32 @@ scan stream =
     matchCloseBrace = matchChar '}'
     matchColon = matchChar ':'
     matchComma = matchChar ','
-    matchStringNumberPair = matchString `matchPipe` matchColon `matchPipe` matchInteger
+    matchMultipleWhiteSpace = matchZeroOrMoreChar matchWhiteSpace
+    matchStringNumberPair =
+      matchFoldr
+        matchPipe
+        matchMultipleWhiteSpace
+        [ matchString
+        , matchMultipleWhiteSpace
+        , matchColon
+        , matchMultipleWhiteSpace
+        , matchInteger
+        ]
     scanner =
       matchFoldr
         matchPipe
         matchOpenBrace
-        [ matchStringNumberPair
-        , matchComma
+        [ matchMultipleWhiteSpace
         , matchStringNumberPair
+        , matchMultipleWhiteSpace
+        , matchComma
+        , matchMultipleWhiteSpace
+        , matchStringNumberPair
+        , matchMultipleWhiteSpace
         , matchCloseBrace
         ]
   in
-    case scanner stream of 
+    case scanner stream of
       MatchOk rest string ->
         ([JString (BLU.fromString string)], "")
 
@@ -86,7 +100,7 @@ matchFoldr func init list =
       init
 
     (x:xs) ->
-      matchFoldr func (func init x) xs 
+      matchFoldr func (func init x) xs
 
 matchPipe :: Scanner t -> Scanner t -> Scanner t
 matchPipe leftParser rightParser stream =
@@ -210,6 +224,10 @@ matchAlpha =
 matchInteger :: Scanner Char
 matchInteger =
   matchOneOrMoreChar matchDigit
+
+matchWhiteSpace :: Scanner Char
+matchWhiteSpace =
+  matchFoldr matchOr (matchChar ' ') (map matchChar "\t\r\n")
 
 matchString :: Scanner Char
 matchString =
