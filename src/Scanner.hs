@@ -57,34 +57,7 @@ type Scanner t = (BL.ByteString -> Match t)
 scan :: BL.ByteString -> ([Token], String)
 scan stream =
   let
-    matchOpenBrace = matchChar '{'
-    matchCloseBrace = matchChar '}'
-    matchColon = matchChar ':'
-    matchComma = matchChar ','
-    matchMultipleWhiteSpace = matchZeroOrMoreChar matchWhiteSpace
-    matchStringNumberPair =
-      matchFoldr
-        matchPipe
-        matchMultipleWhiteSpace
-        [ matchString
-        , matchMultipleWhiteSpace
-        , matchColon
-        , matchMultipleWhiteSpace
-        , matchInteger
-        ]
-    scanner =
-      matchFoldr
-        matchPipe
-        matchOpenBrace
-        [ matchMultipleWhiteSpace
-        , matchStringNumberPair
-        , matchMultipleWhiteSpace
-        , matchComma
-        , matchMultipleWhiteSpace
-        , matchStringNumberPair
-        , matchMultipleWhiteSpace
-        , matchCloseBrace
-        ]
+    scanner = matchData
   in
     case scanner stream of
       MatchOk rest string ->
@@ -225,10 +198,84 @@ matchInteger :: Scanner Char
 matchInteger =
   matchOneOrMoreChar matchDigit
 
+matchFloat :: Scanner Char
+matchFloat =
+  matchInteger `matchPipe` (matchChar '.') `matchPipe` matchInteger
+
+matchNumber :: Scanner Char
+matchNumber =
+  matchFloat `matchOr` matchInteger
+
 matchWhiteSpace :: Scanner Char
 matchWhiteSpace =
   matchFoldr matchOr (matchChar ' ') (map matchChar "\t\r\n")
 
+matchMultipleWhiteSpace :: Scanner Char
+matchMultipleWhiteSpace = matchZeroOrMoreChar matchWhiteSpace
+
 matchString :: Scanner Char
 matchString =
   (matchChar '"') `matchPipe` (matchZeroOrMoreChar (matchNotChar '"')) `matchPipe` (matchChar '"')
+
+matchCollection :: Scanner Char -> Scanner Char -> Scanner Char -> Scanner Char
+matchCollection matchOpen matchClose matchItem =
+  let
+    matchComma = matchChar ','
+    matchCollectionEnd =
+      matchOr
+        matchClose
+        (matchFoldr
+          matchPipe
+          matchComma
+          [ matchMultipleWhiteSpace
+          , matchItem
+          , matchMultipleWhiteSpace
+          , matchCollectionEnd
+          ])
+  in
+    matchFoldr
+      matchPipe
+      matchOpen
+      [ matchMultipleWhiteSpace
+      , matchClose `matchOr` (matchItem `matchPipe` matchMultipleWhiteSpace `matchPipe` matchCollectionEnd)
+      ]
+
+matchList :: Scanner Char
+matchList =
+  let
+    matchOpenSq = matchChar '['
+    matchCloseSq = matchChar ']'
+  in
+    matchCollection matchOpenSq matchCloseSq matchData
+
+matchData :: Scanner Char
+matchData =
+  matchFoldr
+    matchOr
+    matchString
+    [ matchNumber
+    , matchList
+    , matchObject
+    ]
+
+matchKeyValuePair :: Scanner Char
+matchKeyValuePair =
+  let
+    matchColon = matchChar ':'
+  in
+    matchFoldr
+      matchPipe
+      matchString
+      [ matchMultipleWhiteSpace
+      , matchColon
+      , matchMultipleWhiteSpace
+      , matchData
+      ]
+
+matchObject :: Scanner Char
+matchObject =
+  let
+    matchOpenBrace = matchChar '{'
+    matchCloseBrace = matchChar '}'
+  in
+    matchCollection matchOpenBrace matchCloseBrace matchKeyValuePair
