@@ -1,13 +1,41 @@
 module Scanner
-  ( scan
+  ( Token (..)
+  , Match (..)
+  , Scanner
+  , scan
+  , matchFoldr
+  , matchPipe
+  , matchOr
+  , matchNot
+  , matchZeroOrMore
+  , matchZeroOrMoreChar
+  , matchOneOrMore
+  , matchOneOrMoreChar
+  , matchMap
+  , matchAny
+  , matchAnyChar
+  , matchChar
+  , peek
+  , matchNotChar
+  , matchAlphaLower
+  , matchAlphaUpper
+  , matchDigit
+  , matchAlpha
+  , matchInteger
+  , matchFloat
+  , matchNumber
+  , matchWhiteSpace
+  , matchMultipleWhiteSpace
+  , matchString
+  , matchCollection
+  , matchList
+  , matchData
+  , matchKeyValuePair
+  , matchObject
   ) where
 
-import Data.Char (chr, ord)
-import Data.Word (Word8)
-import qualified Data.List as List
 import qualified Data.ByteString.Lazy as BL
 import qualified Data.ByteString.Lazy.UTF8 as BLU
-import qualified Data.ByteString.Internal as BSI (c2w, w2c)
 
 
 data Token
@@ -30,21 +58,31 @@ data Token
 data Match t
   = MatchOk BL.ByteString [t]
   | MatchErr BL.ByteString String
+  | MatchEnd [t]
   deriving (Show)
 
 instance Semigroup (Match t) where
   left <> right = 
     case left of
+      MatchEnd ts ->
+        MatchEnd ts
+
       MatchErr leftStream leftMsg ->
         case right of
+          MatchEnd ts ->
+            MatchEnd ts
+          
           MatchErr rightStream rightMsg ->
-            MatchErr rightStream (leftMsg ++ "\n" ++ rightMsg)
+            MatchErr leftStream (leftMsg ++ "\n" ++ rightMsg)
           
           MatchOk rightStream rightList ->
-            MatchErr rightStream leftMsg
+            MatchErr leftStream leftMsg
 
       MatchOk leftStream leftList ->
         case right of
+          MatchEnd ts ->
+            MatchEnd ts
+          
           MatchErr rightStream rightMsg ->
             MatchErr rightStream rightMsg
 
@@ -57,9 +95,12 @@ type Scanner t = (BL.ByteString -> Match t)
 scan :: BL.ByteString -> ([Token], String)
 scan stream =
   let
-    scanner = matchData
+    scanner = matchObject
   in
     case scanner stream of
+      MatchEnd ts ->
+        ([JString (BLU.fromString ts)], "End of Stream")
+      
       MatchOk rest string ->
         ([JString (BLU.fromString string)], "")
 
@@ -81,6 +122,9 @@ matchPipe leftParser rightParser stream =
     leftMatch = leftParser stream
     leftStream =
       case leftMatch of
+        MatchEnd ts ->
+          BL.empty
+        
         MatchOk rest ts ->
           rest
 
@@ -93,29 +137,34 @@ matchPipe leftParser rightParser stream =
 matchOr :: Scanner t -> Scanner t -> Scanner t
 matchOr leftParser rightParser stream =
   case leftParser stream of
-    MatchOk rest ts ->
-      MatchOk rest ts
+    MatchEnd ts ->
+      MatchEnd ts
 
     MatchErr rest msg ->
       case rightParser stream of
+        MatchEnd ts ->
+          MatchEnd ts
+        
         MatchOk rest' ts' ->
           MatchOk rest' ts'
 
         MatchErr rest' msg' ->
-          (MatchErr rest msg) <> (MatchErr rest' msg')
+          (MatchErr rest' msg')
+
+    MatchOk rest ts ->
+      MatchOk rest ts
 
 matchNot :: (Char -> t) -> Scanner t -> Scanner t
 matchNot f scanner stream =
   case scanner stream of
+    MatchEnd ts ->
+      MatchOk BL.empty ts
+    
     MatchOk rest a ->
-      MatchErr stream ("Not expected but found it")
+      MatchErr stream "Not expected but found it"
 
     MatchErr rest msg ->
-      if msg == "End of stream"
-        then
-          MatchErr rest msg
-        else
-          matchAny f stream
+      matchAny f stream
 
 matchZeroOrMore :: (Char -> t) -> Scanner t -> Scanner t
 matchZeroOrMore f scanner =
@@ -134,6 +183,9 @@ matchOneOrMoreChar = matchOneOrMore id
 matchMap :: (a -> b) -> Scanner a -> Scanner b
 matchMap f scanner stream =
   case scanner stream of
+    MatchEnd ts ->
+      MatchEnd (map f ts)
+    
     MatchOk rest ts ->
       MatchOk rest (map f ts)
 
@@ -144,7 +196,7 @@ matchAny :: (Char -> t) -> Scanner t
 matchAny f stream =
   case BLU.uncons stream of
     Nothing ->
-      MatchErr BL.empty "End of stream"
+      MatchEnd []
 
     Just (c, rest) ->
       MatchOk rest [f c]
@@ -157,7 +209,7 @@ matchChar :: Char -> Scanner Char
 matchChar char stream =
   case BLU.uncons stream of
     Nothing ->
-      MatchErr BL.empty "End of stream"
+      MatchEnd []
 
     Just (c, rest) ->
       if c == char
@@ -169,6 +221,9 @@ matchChar char stream =
 peek :: Scanner t -> Scanner t
 peek scanner stream =
   case scanner stream of
+    MatchEnd ts ->
+      MatchEnd ts
+    
     MatchErr rest msg ->
       MatchErr rest msg
 
@@ -279,3 +334,20 @@ matchObject =
     matchCloseBrace = matchChar '}'
   in
     matchCollection matchOpenBrace matchCloseBrace matchKeyValuePair
+
+{-
+alphaLower <- "a" .. "z"
+alphaUpper <- "A" .. "Z"
+digits <- "0" .. "9"
+integer <- digits+
+float <- integer >> "." >> integer
+number <- float | integer
+whiteSpace <- " " | "\t" | "\r" | "\n"
+mws <- whiteSpace*
+string <- """ >> (~""")* >> """
+listEnd <- "]" | ("," >> mws >> number >> mws >> listEnd)
+list <- "[" >> mws >> ("]" | (number >> mws >> listEnd))
+pair <- string >> mws >> ":" >> mws >> list
+objEnd <- "}" | ("," >> mws >> pair >> mws >> objEnd)
+obj <- "{" >> mws >> ("}" | (pair >> mws >> objEnd))
+-}
