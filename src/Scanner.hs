@@ -53,13 +53,13 @@ data Token
   | JNumber BL.ByteString
   | JWhiteSpace
   | JEmpty
-  deriving (Show)
+  deriving (Show, Eq)
 
 data Match t
   = MatchOk BL.ByteString [t]
   | MatchErr BL.ByteString String
   | MatchEnd [t]
-  deriving (Show)
+  deriving (Show, Eq)
 
 instance Semigroup (Match t) where
   left <> right = 
@@ -287,12 +287,21 @@ matchCollection matchOpen matchClose matchItem =
           , matchMultipleWhiteSpace
           , matchCollectionEnd
           ])
+    matchEmptyOrEnd =
+      matchOr
+        matchClose
+        (matchFoldr
+          matchPipe
+          matchItem
+          [ matchMultipleWhiteSpace
+          , matchCollectionEnd
+          ])
   in
     matchFoldr
       matchPipe
       matchOpen
       [ matchMultipleWhiteSpace
-      , matchClose `matchOr` (matchItem `matchPipe` matchMultipleWhiteSpace `matchPipe` matchCollectionEnd)
+      , matchEmptyOrEnd
       ]
 
 matchList :: Scanner Char
@@ -307,10 +316,10 @@ matchData :: Scanner Char
 matchData =
   matchFoldr
     matchOr
-    matchString
-    [ matchNumber
-    , matchList
+    matchNumber
+    [ matchList
     , matchObject
+    , matchString
     ]
 
 matchKeyValuePair :: Scanner Char
