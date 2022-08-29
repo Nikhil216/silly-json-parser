@@ -11,12 +11,12 @@ testNot =
     TestList
       [ TestCase
           (assertEqual
-            "Should not match any digit"
+            "TestList - Should not match any digit"
             (S.MatchErr (BLU.fromString "123") "Not expected but found it")
             (matchNotDigit . BLU.fromString $ "123"))
       , TestCase
           (assertEqual
-            "Should match spaces"
+            "TestList - Should match spaces"
             (S.MatchOk BL.empty " ")
             (matchNotDigit . BLU.fromString $ " "))
       ]
@@ -25,27 +25,27 @@ testInteger =
   TestList
     [ TestCase
         (assertEqual
-          "Empty String should be matched as end of stream"
+          "testInteger - Empty String should be matched as end of stream"
           (S.MatchEnd "")
           (S.matchInteger . BLU.fromString $ ""))
     , TestCase
         (assertEqual
-          "Should not match alphabet"
+          "testInteger - Should not match alphabet"
           (S.MatchErr (BLU.fromString "abc") "Found a instead of 9")
           (S.matchInteger . BLU.fromString $ "abc"))
     , TestCase
         (assertEqual
-          "Should match single digit"
+          "testInteger - Should match single digit"
           (S.MatchOk BL.empty "1")
           (S.matchInteger . BLU.fromString $ "1"))
     , TestCase
         (assertEqual
-          "Should match multiple digits"
+          "testInteger - Should match multiple digits"
           (S.MatchOk BL.empty "31416")
           (S.matchInteger . BLU.fromString $ "31416"))
     , TestCase
         (assertEqual
-          "Should match multiple digits and not the rest"
+          "testInteger - Should match multiple digits and not the rest"
           (S.MatchOk (BLU.fromString ".9") "31415")
           (S.matchInteger . BLU.fromString $ "31415.9"))
     ]
@@ -54,27 +54,27 @@ testString =
   TestList
     [ TestCase
         (assertEqual
-          "Empty String should be matched as end of stream"
+          "testString - Empty String should be matched as end of stream"
           (S.MatchEnd "")
           (S.matchString . BLU.fromString $ ""))
     -- , TestCase
     --     (assertEqual
-    --       "Should not match alphabet"
+    --       "testString - Should not match alphabet"
     --       (S.MatchErr (BLU.fromString "abc") "Found a instead of \"")
     --       (S.matchString . BLU.fromString $ "abc"))
     , TestCase
         (assertEqual
-          "Should match empty string"
+          "testString - Should match empty string"
           (S.MatchOk BL.empty "\"\"")
           (S.matchString . BLU.fromString $ "\"\""))
     , TestCase
         (assertEqual
-          "Should match string"
+          "testString - Should match string"
           (S.MatchOk BL.empty "\"hello\"")
           (S.matchString . BLU.fromString $ "\"hello\""))
     , TestCase
         (assertEqual
-          "Should match string and not the rest"
+          "testString - Should match string and not the rest"
           (S.MatchOk (BLU.fromString "world") "\"hello\"")
           (S.matchString . BLU.fromString $ "\"hello\"world"))
     ]
@@ -83,17 +83,17 @@ testList =
   TestList
     [ TestCase
         (assertEqual
-          "Should escape on end stream"
+          "testList - Should escape on end stream"
           (S.MatchEnd "")
           (S.matchList . BLU.fromString $ ""))
     , TestCase
         (assertEqual
-          "Should match empty array"
+          "testList - Should match empty array"
           (S.MatchOk BL.empty "[]")
           (S.matchList . BLU.fromString $ "[]"))
     , TestCase
         (assertEqual
-          "Should match single element"
+          "testList - Should match single element"
           (S.MatchOk BL.empty "[1]")
           (S.matchList . BLU.fromString $ "[1]"))
     ]
@@ -102,17 +102,17 @@ testNotChar =
   TestList
     [ TestCase
         (assertEqual
-          "Should escape on end stream"
+          "testNotChar - Should escape on end stream"
           (S.MatchEnd "")
           ((S.matchNotChar '"') . BLU.fromString $ ""))
     , TestCase
         (assertEqual
-          "Should error on double quote"
+          "testNotChar - Should error on double quote"
           (S.MatchErr (BLU.fromString "\"") "Not expected but found it")
           ((S.matchNotChar '"') . BLU.fromString $ "\""))
     , TestCase
         (assertEqual
-          "Should match on space"
+          "testNotChar - Should match on space"
           (S.MatchOk BL.empty " ")
           ((S.matchNotChar '"') . BLU.fromString $ " "))
     ]
@@ -121,27 +121,27 @@ testPeek =
   TestList
     [ TestCase
         (assertEqual
-          "Should escape on end stream"
+          "testPeek - Should escape on end stream"
           (S.MatchEnd "")
           ((S.peek $ S.matchChar ' ') . BLU.fromString $ ""))
     , TestCase
         (assertEqual
-          "Should error on peeking 'a'"
+          "testPeek - Should error on peeking 'a'"
           (S.MatchErr (BLU.fromString "a ") "Found a instead of  ")
           ((S.peek $ S.matchChar ' ') . BLU.fromString $ "a "))
     , TestCase
         (assertEqual
-          "Should match on single ' ' without trail"
+          "testPeek - Should match on single ' ' without trail"
           (S.MatchOk (BLU.fromString " ") "")
           ((S.peek $ S.matchChar ' ') . BLU.fromString $ " "))
     , TestCase
         (assertEqual
-          "Should match on single ' ' with trail"
+          "testPeek - Should match on single ' ' with trail"
           (S.MatchOk (BLU.fromString " a") "")
           ((S.peek $ S.matchChar ' ') . BLU.fromString $ " a"))
     , TestCase
         (assertEqual
-          "Should match on single '  ' with ' ' as trail"
+          "testPeek - Should match on single '  ' with ' ' as trail"
           (S.MatchOk (BLU.fromString "  ") "")
           ((S.peek $ S.matchChar ' ') . BLU.fromString $ "  "))
     ]
@@ -150,27 +150,27 @@ testPeekNot =
   TestList
     [ TestCase
         (assertEqual
-          "Should escape on end stream"
+          "testPeekNot - Should escape on end stream"
           (S.MatchEnd "")
           ((S.peek $ S.matchNotChar ' ') . BLU.fromString $ ""))
     , TestCase
         (assertEqual
-          "Should match on peeking 'a'"
+          "testPeekNot - Should match on peeking 'a'"
           (S.MatchOk (BLU.fromString "a ") "")
           ((S.peek $ S.matchNotChar ' ') . BLU.fromString $ "a "))
     , TestCase
         (assertEqual
-          "Should error on single ' ' without trail"
+          "testPeekNot - Should error on single ' ' without trail"
           (S.MatchErr (BLU.fromString " ") "Not expected but found it")
           ((S.peek $ S.matchNotChar ' ') . BLU.fromString $ " "))
     , TestCase
         (assertEqual
-          "Should error on double ' ' without trail"
+          "testPeekNot - Should error on double ' ' without trail"
           (S.MatchErr (BLU.fromString "  ") "Not expected but found it")
           ((S.peek $ S.matchNotChar ' ') . BLU.fromString $ "  "))
     , TestCase
         (assertEqual
-          "Should match on double 'b' without trail"
+          "testPeekNot - Should match on double 'b' without trail"
           (S.MatchOk (BLU.fromString "bb") "")
           ((S.peek $ S.matchNotChar ' ') . BLU.fromString $ "bb"))
     ]
@@ -179,22 +179,22 @@ testOr =
   TestList
     [ TestCase
         (assertEqual
-          "Should escape on end stream"
+          "testOr - Should escape on end stream"
           (S.MatchEnd "")
           (((S.matchChar 'a') `S.matchOr` (S.matchChar 'b')) . BLU.fromString $ ""))
     , TestCase
         (assertEqual
-          "Should match on 'a'"
+          "testOr - Should match on 'a'"
           (S.MatchOk (BLU.fromString "bc") "a")
           (((S.matchChar 'a') `S.matchOr` (S.matchChar 'b')) . BLU.fromString $ "abc"))
     , TestCase
         (assertEqual
-          "Should match on 'b'"
+          "testOr - Should match on 'b'"
           (S.MatchOk (BLU.fromString "ba") "b")
           (((S.matchChar 'a') `S.matchOr` (S.matchChar 'b')) . BLU.fromString $ "bba"))
     , TestCase
         (assertEqual
-          "Should error on 'c'"
+          "testOr - Should error on 'c'"
           (S.MatchErr (BLU.fromString "ccc") "Found c instead of b")
           (((S.matchChar 'a') `S.matchOr` (S.matchChar 'b')) . BLU.fromString $ "ccc"))
     ]
@@ -203,27 +203,27 @@ testZeroOrMoreChar =
   TestList
     [ TestCase
         (assertEqual
-          "Should escape on end stream"
+          "testZeroOrMoreChar - Should escape on end stream"
           (S.MatchEnd "")
           ((S.matchZeroOrMoreChar $ S.matchChar '"') . BLU.fromString $ ""))
     , TestCase
         (assertEqual
-          "Should match on single 'a' with trail"
+          "testZeroOrMoreChar - Should match on single 'a' with trail"
           (S.MatchOk (BLU.fromString " ") "a")
           ((S.matchZeroOrMoreChar $ S.matchChar '"') . BLU.fromString $ "a "))
     , TestCase
         (assertEqual
-          "Should match on single 'a' without trail"
+          "testZeroOrMoreChar - Should match on single 'a' without trail"
           (S.MatchOk BL.empty "a")
           ((S.matchZeroOrMoreChar $ S.matchChar '"') . BLU.fromString $ "a"))
     , TestCase
         (assertEqual
-          "Should match on triple 'a' with trail"
+          "testZeroOrMoreChar - Should match on triple 'a' with trail"
           (S.MatchOk (BLU.fromString " ") "aaa")
           ((S.matchZeroOrMoreChar $ S.matchChar '"') . BLU.fromString $ "aaa "))
     , TestCase
         (assertEqual
-          "Should match on triple 'a' without trail"
+          "testZeroOrMoreChar - Should match on triple 'a' without trail"
           (S.MatchOk BL.empty "aaa")
           ((S.matchZeroOrMoreChar $ S.matchChar '"') . BLU.fromString $ "aaa"))
     ]
