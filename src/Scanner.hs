@@ -68,20 +68,12 @@ instance Semigroup (Match t) where
         MatchEnd ts
 
       MatchErr leftStream leftMsg ->
-        case right of
-          MatchEnd ts ->
-            MatchEnd ts
-          
-          MatchErr rightStream rightMsg ->
-            MatchErr leftStream (leftMsg ++ "\n" ++ rightMsg)
-          
-          MatchOk rightStream rightList ->
-            MatchErr leftStream leftMsg
+        MatchErr leftStream leftMsg
 
       MatchOk leftStream leftList ->
         case right of
           MatchEnd ts ->
-            MatchEnd ts
+            MatchEnd (leftList ++ ts)
           
           MatchErr rightStream rightMsg ->
             MatchErr rightStream rightMsg
@@ -158,7 +150,7 @@ matchNot :: (Char -> t) -> Scanner t -> Scanner t
 matchNot f scanner stream =
   case scanner stream of
     MatchEnd ts ->
-      MatchOk BL.empty ts
+      MatchEnd ts
     
     MatchOk rest a ->
       MatchErr stream "Not expected but found it"
@@ -225,7 +217,7 @@ peek scanner stream =
       MatchEnd ts
     
     MatchErr rest msg ->
-      MatchErr rest msg
+      MatchErr stream msg
 
     MatchOk rest ts ->
       MatchOk stream []
