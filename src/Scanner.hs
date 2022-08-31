@@ -23,6 +23,10 @@ module Scanner
   , matchAlphaUpper
   , matchDigit
   , matchAlpha
+  , matchNull
+  , matchBoolean
+  , matchTrue
+  , matchFalse
   , matchInteger
   , matchFloat
   , matchNumber
@@ -89,6 +93,7 @@ type Scanner t = (BL.ByteString -> Match t)
 scan :: BL.ByteString -> ([Token], String)
 scan stream =
   let
+    totalCount = BL.length stream
     scanner = matchObject
   in
     case scanner stream of
@@ -99,7 +104,13 @@ scan stream =
         ([JString (BLU.fromString string)], "")
 
       MatchErr rest msg ->
-        ([], msg)
+        ( []
+        , msg 
+          ++ "Error at position "
+          ++ (show (totalCount - (BL.length rest))
+          ++ " : "
+          ++ ((BLU.toString . BLU.take 20) rest))
+        )
 
 matchFoldr :: (Scanner t -> Scanner t -> Scanner t) -> Scanner t -> [Scanner t] -> Scanner t
 matchFoldr func init list =
@@ -253,11 +264,11 @@ matchAlpha =
 
 matchInteger :: Scanner Char
 matchInteger =
-  matchOneOrMoreChar matchDigit
+  (matchZeroOrOneChar (matchChar '-')) `matchPipe` (matchOneOrMoreChar matchDigit)
 
 matchFloat :: Scanner Char
 matchFloat =
-  matchInteger `matchPipe` (matchChar '.') `matchPipe` matchInteger
+  matchInteger `matchPipe` (matchChar '.') `matchPipe` (matchOneOrMoreChar matchDigit)
 
 matchNumber :: Scanner Char
 matchNumber =
@@ -273,6 +284,22 @@ matchMultipleWhiteSpace = matchZeroOrMoreChar matchWhiteSpace
 matchString :: Scanner Char
 matchString =
   (matchChar '"') `matchPipe` (matchZeroOrMoreChar (matchNotChar '"')) `matchPipe` (matchChar '"')
+
+matchNull :: Scanner Char
+matchNull =
+  matchFoldr matchPipe (matchChar 'n') (map matchChar "ull")
+
+matchTrue :: Scanner Char
+matchTrue =
+  matchFoldr matchPipe (matchChar 't') (map matchChar "rue")
+
+matchFalse :: Scanner Char
+matchFalse =
+  matchFoldr matchPipe (matchChar 'f') (map matchChar "alse")
+
+matchBoolean :: Scanner Char
+matchBoolean =
+  matchTrue `matchOr` matchFalse
 
 matchCollection :: Scanner Char -> Scanner Char -> Scanner Char -> Scanner Char
 matchCollection matchOpen matchClose matchItem =
@@ -318,8 +345,10 @@ matchData :: Scanner Char
 matchData =
   matchFoldr
     matchOr
-    matchNumber
-    [ matchString
+    matchNull
+    [ matchBoolean
+    , matchNumber
+    , matchString
     , matchList
     , matchObject
     ]

@@ -35,6 +35,11 @@ testInteger =
           (S.matchInteger . BLU.fromString $ "abc"))
     , TestCase
         (assertEqual
+          "testInteger - Should not match on single -"
+          (S.MatchErr (BLU.fromString "-") "Found - instead of 9")
+          (S.matchInteger . BLU.fromString $ "--"))
+    , TestCase
+        (assertEqual
           "testInteger - Should match single digit"
           (S.MatchEnd "1")
           (S.matchInteger . BLU.fromString $ "1"))
@@ -48,6 +53,60 @@ testInteger =
           "testInteger - Should match multiple digits and not the rest"
           (S.MatchOk (BLU.fromString ".9") "31415")
           (S.matchInteger . BLU.fromString $ "31415.9"))
+    , TestCase
+        (assertEqual
+          "testInteger - Should match negative number"
+          (S.MatchEnd "-31415")
+          (S.matchInteger . BLU.fromString $ "-31415"))
+    ]
+
+testFloat =
+  TestList
+    [ TestCase
+        (assertEqual
+          "testFloat - Empty String should be matched as end of stream"
+          (S.MatchEnd "")
+          (S.matchFloat . BLU.fromString $ ""))
+    , TestCase
+        (assertEqual
+          "testFloat - Should not match alphabet"
+          (S.MatchErr (BLU.fromString "abc") "Found a instead of 9")
+          (S.matchFloat . BLU.fromString $ "abc"))
+    , TestCase
+        (assertEqual
+          "testFloat - Should not match on single -"
+          (S.MatchErr (BLU.fromString "-") "Found - instead of 9")
+          (S.matchFloat . BLU.fromString $ "--"))
+    , TestCase
+        (assertEqual
+          "testFloat - Should match single digits on each side of decimal point"
+          (S.MatchEnd "1.0")
+          (S.matchFloat . BLU.fromString $ "1.0"))
+    , TestCase
+        (assertEqual
+          "testFloat - Should match multiple zeros"
+          (S.MatchEnd "00000")
+          (S.matchFloat . BLU.fromString $ "00000"))
+    , TestCase
+        (assertEqual
+          "testFloat - Should match mulitple digits on each side of decimal point"
+          (S.MatchEnd "420.69")
+          (S.matchFloat . BLU.fromString $ "420.69"))
+    , TestCase
+        (assertEqual
+          "testFloat - Should match pi"
+          (S.MatchEnd "3.1416")
+          (S.matchFloat . BLU.fromString $ "3.1416"))
+    , TestCase
+        (assertEqual
+          "testFloat - Should match e"
+          (S.MatchEnd "2.71828182846")
+          (S.matchFloat . BLU.fromString $ "2.71828182846"))
+    , TestCase
+        (assertEqual
+          "testFloat - Should match negative pi"
+          (S.MatchEnd "-3.1415")
+          (S.matchFloat . BLU.fromString $ "-3.1415"))
     ]
 
 testString =
@@ -351,6 +410,7 @@ testSuite =
     , testZeroOrMoreChar
     , testZeroOrOneChar
     , testInteger
+    , testFloat
     , testString
     , testList
     , testObject
