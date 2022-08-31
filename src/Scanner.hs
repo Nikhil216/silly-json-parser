@@ -309,9 +309,9 @@ matchData =
   matchFoldr
     matchOr
     matchNumber
-    [ matchList
+    [ matchString
+    , matchList
     , matchObject
-    , matchString
     ]
 
 matchKeyValuePair :: Scanner Char

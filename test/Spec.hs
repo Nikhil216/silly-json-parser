@@ -88,14 +88,49 @@ testList =
           (S.matchList . BLU.fromString $ ""))
     , TestCase
         (assertEqual
+          "testList - Should error out on space"
+          (S.MatchErr (BLU.fromString " ") "Found   instead of [")
+          (S.matchList . BLU.fromString $ " "))
+    , TestCase
+        (assertEqual
           "testList - Should match empty array"
           (S.MatchOk BL.empty "[]")
           (S.matchList . BLU.fromString $ "[]"))
     , TestCase
         (assertEqual
-          "testList - Should match single element"
+          "testList - Should match single number"
           (S.MatchOk BL.empty "[1]")
           (S.matchList . BLU.fromString $ "[1]"))
+    , TestCase
+        (assertEqual
+          "testList - Should match single number in list with trail"
+          (S.MatchOk (BLU.fromString "  ") "[1]")
+          (S.matchList . BLU.fromString $ "[1]  "))
+    , TestCase
+        (assertEqual
+          "testList - Should match three number"
+          (S.MatchOk BL.empty "[1, 2, 3]")
+          (S.matchList . BLU.fromString $ "[1, 2, 3]"))
+    , TestCase
+        (assertEqual
+          "testList - Should match three string"
+          (S.MatchOk BL.empty "[\"Deus\", \"Ex\", \"Machina\"]")
+          (S.matchList . BLU.fromString $ "[\"Deus\", \"Ex\", \"Machina\"]"))
+    , TestCase
+        (assertEqual
+          "testList - Should match nested empty lists"
+          (S.MatchOk BL.empty "[[[]]]")
+          (S.matchList . BLU.fromString $ "[[[]]]"))
+    , TestCase
+        (assertEqual
+          "testList - Should match nested lists"
+          (S.MatchOk BL.empty "[[[]]]")
+          (S.matchList . BLU.fromString $ "[[[]]]"))
+    , TestCase
+        (assertEqual
+          "testList - Should match three objects"
+          (S.MatchOk BL.empty "[{\"name\": \"Nikhil\"}, {\"name\": \"Kalyani\"}, {\"name\": \"Shriom\"}]")
+          (S.matchList . BLU.fromString $ "[{\"name\": \"Nikhil\"}, {\"name\": \"Kalyani\"}, {\"name\": \"Shriom\"}]"))
     ]
 
 testNotChar =
@@ -233,6 +268,50 @@ testZeroOrMoreChar =
           ((S.matchZeroOrMoreChar $ S.matchChar 'a') . BLU.fromString $ "aaa"))
     ]
 
+testObject =
+  TestList
+    [ TestCase
+        (assertEqual
+          "testList - Should escape on end stream"
+          (S.MatchEnd "")
+          (S.matchObject . BLU.fromString $ ""))
+    , TestCase
+        (assertEqual
+          "testList - Should error out on space"
+          (S.MatchErr (BLU.fromString " ") "Found   instead of {")
+          (S.matchObject . BLU.fromString $ " "))
+    , TestCase
+        (assertEqual
+          "testList - Should match empty object"
+          (S.MatchOk BL.empty "{}")
+          (S.matchObject . BLU.fromString $ "{}"))
+    , TestCase
+        (assertEqual
+          "testList - Should match pair in object"
+          (S.MatchOk BL.empty "{\"key\": 42}")
+          (S.matchObject . BLU.fromString $ "{\"key\": 42}"))
+    , TestCase
+        (assertEqual
+          "testList - Should match pair in object with spaces in between"
+          (S.MatchOk (BLU.fromString "    ") "{    \"key\"  :  42 }")
+          (S.matchObject . BLU.fromString $ "{    \"key\"  :  42 }    "))
+    , TestCase
+        (assertEqual
+          "testList - Should match single number in object with trail"
+          (S.MatchOk (BLU.fromString "  ") "{\"key\": 42}")
+          (S.matchObject . BLU.fromString $ "{\"key\": 42}  "))
+    , TestCase
+        (assertEqual
+          "testList - Should match three pairs in object"
+          (S.MatchOk BL.empty "{\"proton\": 1, \"neutron\": 0, \"electron\": 1}")
+          (S.matchObject . BLU.fromString $ "{\"proton\": 1, \"neutron\": 0, \"electron\": 1}"))
+    , TestCase
+        (assertEqual
+          "testList - Should match nested objects"
+          (S.MatchOk BL.empty "{\"deep\": {\"deeper\": {\"deepest\": 0}}}")
+          (S.matchObject . BLU.fromString $ "{\"deep\": {\"deeper\": {\"deepest\": 0}}}"))
+    ]
+
 testSuite =
   TestList
     [ testNot
@@ -244,6 +323,7 @@ testSuite =
     , testInteger
     , testString
     , testList
+    , testObject
     ]
 
 main :: IO Counts
