@@ -11,6 +11,8 @@ module Scanner
   , matchZeroOrMoreChar
   , matchOneOrMore
   , matchOneOrMoreChar
+  , matchZeroOrOne
+  , matchZeroOrOneChar
   , matchMap
   , matchAny
   , matchAnyChar
@@ -171,6 +173,14 @@ matchOneOrMore f scanner =
 
 matchOneOrMoreChar :: Scanner Char -> Scanner Char
 matchOneOrMoreChar = matchOneOrMore id
+
+matchZeroOrOne :: (Char -> t) -> Scanner t -> Scanner t
+matchZeroOrOne f scanner =
+  scanner `matchOr` (peek (matchAny f))
+
+matchZeroOrOneChar :: Scanner Char -> Scanner Char
+matchZeroOrOneChar = matchZeroOrOne id
+
 
 matchMap :: (a -> b) -> Scanner a -> Scanner b
 matchMap f scanner stream =

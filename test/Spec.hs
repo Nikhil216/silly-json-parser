@@ -272,44 +272,73 @@ testObject =
   TestList
     [ TestCase
         (assertEqual
-          "testList - Should escape on end stream"
+          "testObject - Should escape on end stream"
           (S.MatchEnd "")
           (S.matchObject . BLU.fromString $ ""))
     , TestCase
         (assertEqual
-          "testList - Should error out on space"
+          "testObject - Should error out on space"
           (S.MatchErr (BLU.fromString " ") "Found   instead of {")
           (S.matchObject . BLU.fromString $ " "))
     , TestCase
         (assertEqual
-          "testList - Should match empty object"
+          "testObject - Should match empty object"
           (S.MatchOk BL.empty "{}")
           (S.matchObject . BLU.fromString $ "{}"))
     , TestCase
         (assertEqual
-          "testList - Should match pair in object"
+          "testObject - Should match pair in object"
           (S.MatchOk BL.empty "{\"key\": 42}")
           (S.matchObject . BLU.fromString $ "{\"key\": 42}"))
     , TestCase
         (assertEqual
-          "testList - Should match pair in object with spaces in between"
+          "testObject - Should match pair in object with spaces in between"
           (S.MatchOk (BLU.fromString "    ") "{    \"key\"  :  42 }")
           (S.matchObject . BLU.fromString $ "{    \"key\"  :  42 }    "))
     , TestCase
         (assertEqual
-          "testList - Should match single number in object with trail"
+          "testObject - Should match single number in object with trail"
           (S.MatchOk (BLU.fromString "  ") "{\"key\": 42}")
           (S.matchObject . BLU.fromString $ "{\"key\": 42}  "))
     , TestCase
         (assertEqual
-          "testList - Should match three pairs in object"
+          "testObject - Should match three pairs in object"
           (S.MatchOk BL.empty "{\"proton\": 1, \"neutron\": 0, \"electron\": 1}")
           (S.matchObject . BLU.fromString $ "{\"proton\": 1, \"neutron\": 0, \"electron\": 1}"))
     , TestCase
         (assertEqual
-          "testList - Should match nested objects"
+          "testObject - Should match nested objects"
           (S.MatchOk BL.empty "{\"deep\": {\"deeper\": {\"deepest\": 0}}}")
           (S.matchObject . BLU.fromString $ "{\"deep\": {\"deeper\": {\"deepest\": 0}}}"))
+    ]
+
+testZeroOrOneChar =
+  TestList
+    [ TestCase
+        (assertEqual
+          "testZeroOrOneChar - Should escape on end stream"
+          (S.MatchEnd "")
+          ((S.matchZeroOrOneChar $ S.matchChar 'a') . BLU.fromString $ ""))
+    , TestCase
+        (assertEqual
+          "testZeroOrOneChar - Should match on no 'a' with trail"
+          (S.MatchOk (BLU.fromString " ") "")
+          ((S.matchZeroOrOneChar $ S.matchChar 'a') . BLU.fromString $ " "))
+    , TestCase
+        (assertEqual
+          "testZeroOrOneChar - Should match on single 'a' with trail"
+          (S.MatchOk (BLU.fromString " ") "a")
+          ((S.matchZeroOrOneChar $ S.matchChar 'a') . BLU.fromString $ "a "))
+    , TestCase
+        (assertEqual
+          "testZeroOrOneChar - Should match on single 'a' without trail"
+          (S.MatchOk BL.empty "a")
+          ((S.matchZeroOrOneChar $ S.matchChar 'a') . BLU.fromString $ "a"))
+    , TestCase
+        (assertEqual
+          "testZeroOrOneChar - Should match on single 'a' on double 'a'"
+          (S.MatchOk (BLU.fromString "a") "a")
+          ((S.matchZeroOrOneChar $ S.matchChar 'a') . BLU.fromString $ "aa"))
     ]
 
 testSuite =
@@ -320,6 +349,7 @@ testSuite =
     , testOr
     , testPeekNot
     , testZeroOrMoreChar
+    , testZeroOrOneChar
     , testInteger
     , testString
     , testList
