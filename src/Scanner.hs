@@ -3,6 +3,7 @@ module Scanner
   , Match (..)
   , Scanner
   , scan
+  , scanNext
   , matchFoldr
   , matchPipe
   , matchOr
@@ -51,12 +52,11 @@ data Token
   | JClosingSquare
   | JComma
   | JColon
-  | JDoubleQuote
   | JTrue
   | JFalse
   | JNull
-  | JString BL.ByteString
-  | JNumber BL.ByteString
+  | JString String
+  | JNumber String
   | JWhiteSpace
   | JEmpty
   deriving (Show, Eq)
@@ -94,14 +94,18 @@ scan :: BL.ByteString -> ([Token], String)
 scan stream =
   let
     totalCount = BL.length stream
-    scanner = matchObject
+    scanner =
+      matchFoldr
+        matchPipe
+        scanNext
+        (replicate 2000 scanNext)
   in
     case scanner stream of
       MatchEnd ts ->
-        ([JString (BLU.fromString ts)], "End of Stream")
+        (ts, "End of Stream, Number of tokens: " ++ show (length ts))
       
-      MatchOk rest string ->
-        ([JString (BLU.fromString string)], "")
+      MatchOk rest ts ->
+        (ts, "Number of tokens: " ++ show (length ts))
 
       MatchErr rest msg ->
         ( []
@@ -111,6 +115,95 @@ scan stream =
           ++ " : "
           ++ ((BLU.toString . BLU.take 20) rest))
         )
+
+scanNext :: BL.ByteString -> Match Token
+scanNext stream =
+  case BLU.uncons stream of
+    Nothing ->
+      MatchEnd []
+
+    Just (c, rest) ->
+      case c of
+        '{' ->
+          MatchOk rest [JOpeningBrace]
+        
+        '}' ->
+          MatchOk rest [JClosingBrace]
+        
+        '[' ->
+          MatchOk rest [JOpeningSquare]
+        
+        ']' ->
+          MatchOk rest [JClosingSquare]
+        
+        ',' ->
+          MatchOk rest [JComma]
+        
+        ':' ->
+          MatchOk rest [JColon]
+        
+        'n' ->
+          case matchNull stream of
+            MatchEnd ts ->
+              MatchErr BL.empty "Stream ended"
+
+            MatchErr rest' msg ->
+              MatchErr rest' msg
+
+            MatchOk rest' nullStr ->
+              MatchOk rest' [JNull]
+        
+        't' ->
+          case matchTrue stream of
+            MatchEnd ts ->
+              MatchErr BL.empty "Stream ended"
+
+            MatchErr rest' msg ->
+              MatchErr rest' msg
+
+            MatchOk rest' nullStr ->
+              MatchOk rest' [JTrue]
+        
+        'f' ->
+          case matchFalse stream of
+            MatchEnd ts ->
+              MatchErr BL.empty "Stream ended"
+
+            MatchErr rest' msg ->
+              MatchErr rest' msg
+
+            MatchOk rest' nullStr ->
+              MatchOk rest' [JFalse]
+        
+        '"' ->
+          case matchString stream of
+            MatchEnd ts ->
+              MatchErr BL.empty "Stream ended"
+
+            MatchErr rest' msg ->
+              MatchErr rest' msg
+
+            MatchOk rest' str ->
+              MatchOk rest' [JString str]
+
+        _ ->
+          case matchNumber stream of
+            MatchEnd ts ->
+              MatchErr BL.empty "Stream ended"
+
+            MatchOk rest' str ->
+              MatchOk rest' [JNumber str] 
+            
+            MatchErr rest' msg ->
+              case (matchOneOrMoreChar matchWhiteSpace) stream of
+                MatchEnd ts ->
+                  MatchErr BL.empty "Stream ended"
+
+                MatchErr rest' msg ->
+                  MatchErr rest ("Cannot parse character: " ++ [c])
+
+                MatchOk rest' str ->
+                  MatchOk rest' [JWhiteSpace]
 
 matchFoldr :: (Scanner t -> Scanner t -> Scanner t) -> Scanner t -> [Scanner t] -> Scanner t
 matchFoldr func init list =
