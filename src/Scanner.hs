@@ -184,7 +184,11 @@ scanNext stream =
               MatchErr rest' msg
 
             MatchOk rest' str ->
-              MatchOk rest' [JString str]
+              let
+                len = length str
+                str' = drop 1 . take (len - 1) $ str
+              in
+                MatchOk rest' [JString str']
 
         _ ->
           case matchNumber stream of
