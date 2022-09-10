@@ -203,7 +203,7 @@ scanNext stream =
                   MatchErr rest ("Cannot parse character: " ++ [c])
 
                 MatchOk rest' str ->
-                  MatchOk rest' [JWhiteSpace]
+                  MatchOk rest' []
 
 matchFoldr :: (Scanner t -> Scanner t -> Scanner t) -> Scanner t -> [Scanner t] -> Scanner t
 matchFoldr func init list =

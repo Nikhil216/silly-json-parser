@@ -2,7 +2,7 @@ module Main where
 
 import System.Environment (getArgs)
 import qualified Data.ByteString.Lazy as BL
-import qualified Scanner
+import qualified Parser
 
 main :: IO ()
 main =
@@ -10,5 +10,5 @@ main =
     args <- getArgs
     let path = head args
     content <- BL.readFile path
-    let result = Scanner.scan content
+    let result = Parser.parse content
     print result
