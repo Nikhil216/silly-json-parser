@@ -6,7 +6,7 @@ cabal-version: 1.12
 
 name:           json-parser
 version:        0.1.0.0
-description:    Please see the README on GitHub at <https://github.com/githubuser/json-parser#readme>
+description:    Please see the README on GitHub at <https://github.com/Nikhil216/silly-json-parser#readme>
 homepage:       https://github.com/githubuser/json-parser#readme
 bug-reports:    https://github.com/githubuser/json-parser/issues
 author:         Author name here
@@ -36,7 +36,6 @@ library
       base >=4.7 && <5
     , bytestring
     , containers
-    , regex-tdfa
     , utf8-string
   default-language: Haskell2010
 
@@ -52,7 +51,6 @@ executable json-parser-exe
     , bytestring
     , containers
     , json-parser
-    , regex-tdfa
     , utf8-string
   default-language: Haskell2010
 
@@ -70,6 +68,5 @@ test-suite json-parser-test
     , bytestring
     , containers
     , json-parser
-    , regex-tdfa
     , utf8-string
   default-language: Haskell2010

@@ -1,6 +1,7 @@
 module Parser (
   parse,
-  parseData
+  parseData,
+  JSData(..)
 ) where
 
 import qualified Data.ByteString.Lazy as BL
