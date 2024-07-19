@@ -98,7 +98,7 @@ scan stream =
       matchFoldr
         matchPipe
         scanNext
-        (replicate 2000 scanNext)
+        (replicate 10000 scanNext)
   in
     case scanner stream of
       MatchEnd ts ->

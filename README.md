@@ -1,6 +1,6 @@
 # sily-json-parser
 
-This is attempt at writing a JSON parser in hopes of learning about lexers and parsers.
+This is attempt at writing a JSON parser in hopes of learning about lexers and parsers. As far as I know, this follows the json specification. The style followed here is the one used by [Elm](https://elm-lang.org/docs/style-guide).
 
 ## Overview
 
